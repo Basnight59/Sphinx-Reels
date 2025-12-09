@@ -18,6 +18,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navItems = [
     { path: '/', icon: Home, label: 'Dashboard' },
     { path: '/templates', icon: LayoutTemplate, label: 'Templates' },
+    { path: '/admin', icon: Settings, label: 'Admin' },
   ];
 
   return (

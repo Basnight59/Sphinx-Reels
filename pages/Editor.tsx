@@ -20,6 +20,7 @@ export const Editor: React.FC<EditorProps> = ({ projects, onUpdateProject }) => 
   // AI Generation State
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
+  const [aiProvider, setAiProvider] = useState<string>('auto');
   const [showAiModal, setShowAiModal] = useState(false);
 
   useEffect(() => {
@@ -123,8 +124,17 @@ export const Editor: React.FC<EditorProps> = ({ projects, onUpdateProject }) => 
               Generate Scenes with AI
             </h2>
             <p className="text-muted text-sm mb-4">
-              Enter a topic and Gemini will generate a script and visuals for you.
+              Enter a topic and the selected AI provider will generate a script and visuals for you.
             </p>
+            <div className="mb-4">
+              <label className="text-xs text-muted block mb-2">Provider</label>
+              <select value={aiProvider} onChange={(e) => setAiProvider(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-white">
+                <option value="auto">Auto (recommended)</option>
+                <option value="openai">OpenAI (ChatGPT)</option>
+                <option value="gemini">Google Gemini</option>
+                <option value="anthropic">Anthropic (Claude)</option>
+              </select>
+            </div>
             <textarea
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
@@ -233,18 +243,45 @@ export const Editor: React.FC<EditorProps> = ({ projects, onUpdateProject }) => 
                         </div>
                     </div>
                 </div>
-            ) : (
-                <div className="text-muted flex flex-col items-center">
-                    <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mb-4">
-                        <PlayCircle className="w-8 h-8 text-muted" />
-                    </div>
-                    <p>Select or add a scene to start editing</p>
-                </div>
-            )}
-        </main>
+            try {
+              // In a real app, we would let user pick the type. Hardcoded to MOTIVATIONAL for demo.
+              const API_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:5000/api';
+              const accessToken = localStorage.getItem('accessToken');
+              let usedScenes: Scene[] = [];
 
-        {/* Right: Properties Panel */}
-        <aside className="w-80 bg-surface border-l border-border flex flex-col overflow-y-auto">
+              try {
+                const res = await fetch(`${API_URL}/ai/generate-scenes`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                  },
+                  body: JSON.stringify({ topic: aiPrompt, provider: aiProvider, options: { type: AIScriptType.MOTIVATIONAL, count: 3 } }),
+                });
+
+                if (!res.ok) {
+                  throw new Error(`AI endpoint error ${res.status}`);
+                }
+
+                const json = await res.json();
+                const scenesFromApi = json?.scenes || [];
+                // Map API scenes into client Scene shape if necessary
+                usedScenes = scenesFromApi.map((s: any, idx: number) => ({ id: `api-${Date.now()}-${idx}`, text: s.script || s.text || '', image: s.mediaHints?.image || `https://picsum.photos/seed/${encodeURIComponent((s.title || s.script || '').slice(0,10))}/1080/1920`, duration: s.durationSeconds || s.duration || 3 }));
+              } catch (err) {
+                console.warn('Backend AI call failed, falling back to client mock Gemini service', err);
+                const generatedScenes = await generateScenesFromTopic(aiPrompt, AIScriptType.MOTIVATIONAL);
+                usedScenes = generatedScenes;
+              }
+
+              setProject(prev => prev ? { ...prev, scenes: [...prev.scenes, ...usedScenes] } : undefined);
+              setShowAiModal(false);
+              setAiPrompt('');
+              if (usedScenes.length > 0) setActiveSceneId(usedScenes[0].id);
+            } catch (e) {
+              console.error(e);
+            } finally {
+              setIsGenerating(false);
+            }
           {activeScene ? (
             <div className="p-6 space-y-6">
                <div className="pb-4 border-b border-border">

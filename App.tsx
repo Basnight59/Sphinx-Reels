@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Editor } from './pages/Editor';
 import { Templates } from './pages/Templates';
 import { Login } from './pages/Login';
+import { Admin } from './pages/Admin';
 import { Project } from './types';
 
 // Mock Initial Data
@@ -32,7 +33,12 @@ const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
 
   const handleLogin = () => setIsAuthenticated(true);
-  
+
+  // If token exists in localStorage, initialize authenticated state
+  React.useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (token) setIsAuthenticated(true);
+  }, []);
   const createProject = () => {
     const newProject: Project = {
       id: Date.now().toString(),
@@ -65,6 +71,7 @@ const App: React.FC = () => {
         <Route path="/" element={isAuthenticated ? <Layout><Dashboard projects={projects} onCreateProject={createProject} /></Layout> : <Navigate to="/login" />} />
         
         <Route path="/templates" element={isAuthenticated ? <Layout><Templates /></Layout> : <Navigate to="/login" />} />
+        <Route path="/admin" element={isAuthenticated ? <Layout><Admin /></Layout> : <Navigate to="/login" />} />
         
         <Route path="/project/:id" element={isAuthenticated ? <Layout><Editor projects={projects} onUpdateProject={updateProject} /></Layout> : <Navigate to="/login" />} />
         
